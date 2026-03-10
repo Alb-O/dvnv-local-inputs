@@ -4,6 +4,7 @@ let
   cfg = config.composer;
   pythonWithYaml = pkgs.python3.withPackages (ps: [ ps.pyyaml ]);
   localInputOverridesScript = ./dvnv-local-inputs.py;
+  localInputOverridesCurrentRoot = toString config.devenv.root;
   localInputOverridesReposRoot =
     if cfg.localInputOverrides.reposRoot != null
     then cfg.localInputOverrides.reposRoot
@@ -21,6 +22,37 @@ let
   localInputOverridesRepoNames = lib.filter (
     repoName: builtins.getAttr repoName localInputOverridesReposEntries == "directory"
   ) (builtins.attrNames localInputOverridesReposEntries);
+  # Reuse the same repo-relative source path when recursively scanning local
+  # repos. This keeps the Python side sandbox-friendly because it receives the
+  # YAML texts directly instead of trying to walk host paths itself.
+  localInputOverridesSourceRelativePath =
+    if lib.hasPrefix "${localInputOverridesCurrentRoot}/" localInputOverridesSourcePath then
+      lib.removePrefix "${localInputOverridesCurrentRoot}/" localInputOverridesSourcePath
+    else if lib.hasPrefix "/" localInputOverridesSourcePath then
+      null
+    else
+      localInputOverridesSourcePath;
+  localInputOverridesRepoSources = builtins.listToAttrs (
+    lib.filter (entry: entry != null) (
+      map (
+        repoName:
+        let
+          repoSourcePath =
+            if localInputOverridesSourceRelativePath == null then
+              null
+            else
+              "${localInputOverridesReposRoot}/${repoName}/${localInputOverridesSourceRelativePath}";
+        in
+        if repoSourcePath != null && builtins.pathExists repoSourcePath then
+          {
+            name = repoName;
+            value = builtins.readFile repoSourcePath;
+          }
+        else
+          null
+      ) localInputOverridesRepoNames
+    )
+  );
   localInputOverridesText =
     if builtins.pathExists localInputOverridesSourcePath
     then builtins.readFile (pkgs.runCommand "local-input-overrides.yaml" {
@@ -28,13 +60,21 @@ let
       passAsFile = [
         "sourceYaml"
         "repoNamesJson"
+        "repoSourcesJson"
       ];
       sourceYaml = builtins.readFile localInputOverridesSourcePath;
       repoNamesJson = builtins.toJSON localInputOverridesRepoNames;
+      repoSourcesJson = builtins.toJSON localInputOverridesRepoSources;
       reposRoot = localInputOverridesReposRoot;
       urlScheme = cfg.localInputOverrides.urlScheme;
     } ''
-      python3 ${localInputOverridesScript} "$sourceYamlPath" "$repoNamesJsonPath" "$reposRoot" "$urlScheme" > "$out"
+      python3 ${localInputOverridesScript} \
+        "$sourceYamlPath" \
+        "$repoNamesJsonPath" \
+        "$repoSourcesJsonPath" \
+        "$reposRoot" \
+        "$urlScheme" \
+        > "$out"
     '')
     else "";
 in
