@@ -5,10 +5,16 @@ let
 in
 {
   options.composer.localInputOverrides = {
-    reposRoot = lib.mkOption {
+    polyrepoRoot = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "Base directory containing local repos used for generated overrides. When null, defaults to `builtins.dirOf config.devenv.root`.";
+      description = "Polyrepo root used for generated overrides. When null, infer it from the current repo location and `repoDirsPath`.";
+    };
+
+    repoDirsPath = lib.mkOption {
+      type = lib.types.str;
+      default = "repos";
+      description = "Directory path containing consumer repos, relative to `polyrepoRoot` unless absolute.";
     };
 
     sourcePath = lib.mkOption {

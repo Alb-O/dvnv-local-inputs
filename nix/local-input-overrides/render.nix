@@ -8,9 +8,9 @@ in
   {
     cfg,
     globalInputsText,
+    repoDirsRoot,
     repoNames,
     repoSources,
-    reposRoot,
     sourcePath,
   }:
   if builtins.pathExists sourcePath then
@@ -32,7 +32,7 @@ in
         globalInputsYaml = globalInputsText;
         includeInputsJson = builtins.toJSON cfg.includeInputs;
         excludeInputsJson = builtins.toJSON cfg.excludeInputs;
-        reposRoot = reposRoot;
+        repoDirsRoot = repoDirsRoot;
         urlScheme = cfg.urlScheme;
       } ''
         python3 ${localInputOverridesScript} \
@@ -42,7 +42,7 @@ in
           "$globalInputsYamlPath" \
           "$includeInputsJsonPath" \
           "$excludeInputsJsonPath" \
-          "$reposRoot" \
+          "$repoDirsRoot" \
           "$urlScheme" \
           > "$out"
       ''

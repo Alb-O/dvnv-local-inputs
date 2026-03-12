@@ -147,7 +147,7 @@ def build_overrides(
     repo_sources,
     include_inputs,
     exclude_inputs,
-    repos_root,
+    repo_dirs_root,
     url_scheme,
 ):
     url_prefix = "git+file:" if url_scheme == "git+file" else "path:"
@@ -193,7 +193,7 @@ def build_overrides(
             if not repo_name or repo_name not in local_repo_names:
                 continue
 
-            local_repo_path = os.path.join(repos_root, repo_name)
+            local_repo_path = os.path.join(repo_dirs_root, repo_name)
             copied_spec["url"] = f"{url_prefix}{local_repo_path}"
             add_override(overrides, input_name, copied_spec, source_label)
 
@@ -239,7 +239,7 @@ def run_generator_mode(
     global_inputs_yaml_path,
     include_inputs_json_path,
     exclude_inputs_json_path,
-    repos_root,
+    repo_dirs_root,
     url_scheme,
 ):
     local_repo_names = read_local_repo_names(local_repo_names_path)
@@ -261,7 +261,7 @@ def run_generator_mode(
         repo_sources,
         include_inputs,
         exclude_inputs,
-        repos_root,
+        repo_dirs_root,
         url_scheme,
     )
     sys.stdout.write(render_overrides_text(overrides, imports_list))
@@ -272,6 +272,49 @@ def resolve_repo_path(repo_root, candidate_path):
     if os.path.isabs(candidate_path):
         return os.path.normpath(candidate_path)
     return os.path.normpath(os.path.join(repo_root, candidate_path))
+
+
+def resolve_repo_dirs_root(polyrepo_root, repo_dirs_path):
+    if os.path.isabs(repo_dirs_path):
+        return os.path.normpath(repo_dirs_path)
+    return os.path.normpath(os.path.join(polyrepo_root, repo_dirs_path))
+
+
+def infer_polyrepo_root(repo_root, repo_dirs_path):
+    if os.path.isabs(repo_dirs_path):
+        return None
+
+    repo_root = os.path.normpath(repo_root)
+    repo_parent = os.path.dirname(repo_root)
+    repo_dirs_path = os.path.normpath(repo_dirs_path)
+
+    if repo_dirs_path in ("", "."):
+        return repo_parent
+
+    candidate_polyrepo_root = repo_parent
+    for _ in repo_dirs_path.split(os.sep):
+        candidate_polyrepo_root = os.path.dirname(candidate_polyrepo_root)
+
+    candidate_repo_dirs_root = os.path.normpath(
+        os.path.join(candidate_polyrepo_root, repo_dirs_path)
+    )
+    if repo_parent == candidate_repo_dirs_root:
+        return candidate_polyrepo_root
+
+    return None
+
+
+def resolve_polyrepo_root(repo_root, polyrepo_root, repo_dirs_path):
+    if polyrepo_root is not None:
+        return os.path.realpath(resolve_repo_path(repo_root, polyrepo_root))
+
+    inferred = infer_polyrepo_root(repo_root, repo_dirs_path)
+    if inferred is None:
+        fail(
+            "polyrepo root could not be inferred; pass --polyrepo-root when the current repo is not nested under --repo-dirs-path"
+        )
+
+    return os.path.realpath(inferred)
 
 
 def maybe_relativize(path, root):
@@ -290,7 +333,8 @@ def sync_local_overrides(
     repo_root,
     source_path,
     output_path,
-    repos_root,
+    polyrepo_root,
+    repo_dirs_path,
     url_scheme,
     include_repos,
     exclude_repos,
@@ -300,13 +344,14 @@ def sync_local_overrides(
     repo_root = os.path.realpath(repo_root)
     source_yaml_path = resolve_repo_path(repo_root, source_path)
     output_yaml_path = resolve_repo_path(repo_root, output_path)
-    repos_root = os.path.realpath(repos_root)
+    polyrepo_root = resolve_polyrepo_root(repo_root, polyrepo_root, repo_dirs_path)
+    repo_dirs_root = os.path.realpath(resolve_repo_dirs_root(polyrepo_root, repo_dirs_path))
     fail_on_overlap(include_repos, exclude_repos, "included repos", "excluded repos")
     fail_on_overlap(include_inputs, exclude_inputs, "included inputs", "excluded inputs")
 
     with open(source_yaml_path, "r", encoding="utf-8") as handle:
         source_yaml_text = handle.read()
-    global_inputs_yaml_path = os.path.join(repos_root, GLOBAL_INPUTS_BASENAME)
+    global_inputs_yaml_path = os.path.join(polyrepo_root, GLOBAL_INPUTS_BASENAME)
     global_inputs_yaml_text = ""
     if os.path.isfile(global_inputs_yaml_path):
         with open(global_inputs_yaml_path, "r", encoding="utf-8") as handle:
@@ -315,8 +360,8 @@ def sync_local_overrides(
     source_relative_path = maybe_relativize(source_yaml_path, repo_root)
     repo_names = {
         entry
-        for entry in os.listdir(repos_root)
-        if os.path.isdir(os.path.join(repos_root, entry))
+        for entry in os.listdir(repo_dirs_root)
+        if os.path.isdir(os.path.join(repo_dirs_root, entry))
     }
     if include_repos:
         repo_names = {entry for entry in repo_names if entry in include_repos}
@@ -325,7 +370,7 @@ def sync_local_overrides(
     repo_sources = {}
     if source_relative_path is not None:
         for repo_name in repo_names:
-            nested_path = os.path.join(repos_root, repo_name, source_relative_path)
+            nested_path = os.path.join(repo_dirs_root, repo_name, source_relative_path)
             if os.path.isfile(nested_path):
                 with open(nested_path, "r", encoding="utf-8") as handle:
                     repo_sources[repo_name] = handle.read()
@@ -337,7 +382,7 @@ def sync_local_overrides(
         repo_sources,
         include_inputs,
         exclude_inputs,
-        repos_root,
+        repo_dirs_root,
         url_scheme,
     )
     overrides_text = render_overrides_text(overrides, imports_list)
@@ -374,7 +419,8 @@ def parse_args(argv):
     sync_parser.add_argument("repo_root", nargs="?", default=".")
     sync_parser.add_argument("--source-path", default="devenv.yaml")
     sync_parser.add_argument("--output-path", default="devenv.local.yaml")
-    sync_parser.add_argument("--repos-root")
+    sync_parser.add_argument("--polyrepo-root")
+    sync_parser.add_argument("--repo-dirs-path", default="repos")
     sync_parser.add_argument("--url-scheme", choices=["path", "git+file"], default="path")
     sync_parser.add_argument("--include-repo", action="append", default=[])
     sync_parser.add_argument("--exclude-repo", action="append", default=[])
@@ -395,7 +441,7 @@ def main():
             global_inputs_yaml_path,
             include_inputs_json_path,
             exclude_inputs_json_path,
-            repos_root,
+            repo_dirs_root,
             url_scheme,
         ) = parsed
         return run_generator_mode(
@@ -405,21 +451,17 @@ def main():
             global_inputs_yaml_path,
             include_inputs_json_path,
             exclude_inputs_json_path,
-            repos_root,
+            repo_dirs_root,
             url_scheme,
         )
 
     repo_root = os.path.realpath(parsed.repo_root)
-    repos_root = (
-        os.path.realpath(parsed.repos_root)
-        if parsed.repos_root is not None
-        else os.path.dirname(repo_root)
-    )
     return sync_local_overrides(
         repo_root,
         parsed.source_path,
         parsed.output_path,
-        repos_root,
+        parsed.polyrepo_root,
+        parsed.repo_dirs_path,
         parsed.url_scheme,
         set(parsed.include_repo),
         set(parsed.exclude_repo),

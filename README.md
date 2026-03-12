@@ -2,7 +2,7 @@
 
 Reusable `devenv` module that generates `devenv.local.yaml` with local path overrides
 for inputs in `devenv.yaml` whose remote repo name matches a local directory name
-under `composer.localInputOverrides.reposRoot`.
+under the consumer repo directory configured by `composer.localInputOverrides.repoDirsPath`.
 
 It also walks local repos transitively. If repo `A` imports local repo `B`, and
 `B` imports local repo `C`, then `A`'s generated `devenv.local.yaml` will include
@@ -16,7 +16,8 @@ overrides for both `B` and `C`.
 
 ## Options
 
-- `reposRoot`: base directory containing local repos
+- `polyrepoRoot`: actual polyrepo root
+- `repoDirsPath`: directory path containing consumer repos
 - `sourcePath`: source YAML to scan for inputs
 - `outputPath`: generated override file path
 - `urlScheme`: generated override URL scheme
@@ -28,8 +29,8 @@ overrides for both `B` and `C`.
 - Recursive scanning reuses the same `sourcePath` inside each local repo.
 - That works best with the default `devenv.yaml`, or another repo-relative path
   shared across the repos in your polyrepo.
-- If `${reposRoot}/.devenv-global-inputs.yaml` exists, its `inputs` are treated
-  as low-precedence defaults for every generated `devenv.local.yaml`.
+- If `${polyrepoRoot}/.devenv-global-inputs.yaml` exists, its `inputs` are
+  treated as low-precedence defaults for every generated `devenv.local.yaml`.
 - `devenv.local.yaml` must exist before `devenv` starts. `devenv` loads local
   YAML during config/bootstrap, while this module runs later during Nix module
   evaluation. So the module can keep the file in sync, but it cannot bootstrap
@@ -62,15 +63,21 @@ imports:
   - dvnv-local-inputs
 
 composer.localInputOverrides = {
+  polyrepoRoot = "/path/to/polyrepo";
+  repoDirsPath = "repos";
   excludeRepos = [ "big-experimental-repo" ];
   includeInputs = [ "agent-scripts" "dvnv-docs-env" ];
 };
 ```
 
+When the current repo already lives under `${polyrepoRoot}/${repoDirsPath}/...`,
+`polyrepoRoot` can usually be omitted and inferred. Top-level polyrepo configs
+should set it explicitly.
+
 ## Global Defaults
 
-Create `${reposRoot}/.devenv-global-inputs.yaml` to define shared defaults once
-for the whole polyrepo:
+Create `${polyrepoRoot}/.devenv-global-inputs.yaml` to define shared defaults
+once for the whole polyrepo:
 
 ```yaml
 inputs:

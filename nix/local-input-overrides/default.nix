@@ -11,7 +11,7 @@ let
   renderLocalInputOverrides = import ./render.nix { inherit pkgs; };
   localInputOverridesText = renderLocalInputOverrides {
     inherit cfg;
-    inherit (context) globalInputsText repoNames repoSources reposRoot sourcePath;
+    inherit (context) globalInputsText repoDirsRoot repoNames repoSources sourcePath;
   };
 in
 {
