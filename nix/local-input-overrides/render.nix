@@ -2,7 +2,7 @@
 
 let
   pythonWithYaml = pkgs.python3.withPackages (ps: [ ps.pyyaml ]);
-  localInputOverridesScript = ../../dvnv-local-inputs.py;
+  localInputOverridesScript = ../../poly-local-inputs.py;
 in
 (
   {

@@ -7,11 +7,11 @@ output_path="$repo_root/devenv.local.yaml"
 
 run_sync() {
   if python3 -c 'import yaml' >/dev/null 2>&1; then
-    python3 "$script_dir/dvnv-local-inputs.py" sync "$@"
+    python3 "$script_dir/poly-local-inputs.py" sync "$@"
   else
     nix --extra-experimental-features 'nix-command flakes' \
       shell "path:${script_dir}/nix/flake-bootstrap#pyyaml" \
-      -c python3 "$script_dir/dvnv-local-inputs.py" sync "$@"
+      -c python3 "$script_dir/poly-local-inputs.py" sync "$@"
   fi
 }
 

@@ -38,8 +38,8 @@ overrides for both `B` and `C`.
 - Use the pre-bootstrap helper before `use devenv`:
 
 ```bash
-if [ -x ../dvnv-local-inputs/bootstrap-local-inputs ]; then
-  ../dvnv-local-inputs/bootstrap-local-inputs .
+if [ -x ../poly-local-inputs/bootstrap-local-inputs ]; then
+  ../poly-local-inputs/bootstrap-local-inputs .
 fi
 eval "$(devenv direnvrc)"
 use devenv
@@ -56,17 +56,17 @@ use devenv
 
 ```yaml
 inputs:
-  dvnv-local-inputs:
-    url: github:Alb-O/dvnv-local-inputs
+  poly-local-inputs:
+    url: github:Alb-O/poly-local-inputs
     flake: false
 imports:
-  - dvnv-local-inputs
+  - poly-local-inputs
 
 composer.localInputOverrides = {
   polyrepoRoot = "/path/to/polyrepo";
   repoDirsPath = "repos";
   excludeRepos = [ "big-experimental-repo" ];
-  includeInputs = [ "agent-scripts" "dvnv-docs-env" ];
+  includeInputs = [ "agent-scripts" "poly-docs-env" ];
 };
 ```
 
@@ -84,8 +84,8 @@ inputs:
   agent-scripts:
     url: github:Alb-O/agent-scripts
     flake: false
-  dvnv-docs-env:
-    url: github:Alb-O/dvnv-docs-env
+  poly-docs-env:
+    url: github:Alb-O/poly-docs-env
     flake: false
 imports:
   - agent-scripts

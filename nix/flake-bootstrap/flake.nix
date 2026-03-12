@@ -1,5 +1,5 @@
 {
-  description = "Bootstrap Python environment for dvnv-local-inputs";
+  description = "Bootstrap Python environment for poly-local-inputs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
