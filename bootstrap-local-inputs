@@ -10,7 +10,7 @@ run_sync() {
     python3 "$script_dir/dvnv-local-inputs.py" sync "$@"
   else
     nix --extra-experimental-features 'nix-command flakes' \
-      shell "path:${script_dir}/bootstrap#pyyaml" \
+      shell "path:${script_dir}/nix/flake-bootstrap#pyyaml" \
       -c python3 "$script_dir/dvnv-local-inputs.py" sync "$@"
   fi
 }

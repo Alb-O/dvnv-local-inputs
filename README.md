@@ -37,8 +37,8 @@ use devenv
   discovered transitive overrides can affect the next evaluation.
 - `bootstrap-local-inputs` prefers an existing `python3` with `PyYAML`
   available. If that import is missing, it falls back to a repo-owned pinned
-  bootstrap environment under `bootstrap/`, so users do not need to edit global
-  Nix configuration or install Python modules manually.
+  bootstrap environment under `nix/flake-bootstrap/`, so users do not need to
+  edit global Nix configuration or install Python modules manually.
 
 ## Use
 
