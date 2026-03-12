@@ -9,6 +9,7 @@ let
     if cfg.reposRoot != null
     then cfg.reposRoot
     else dirOf config.devenv.root;
+  globalInputsPath = "${reposRoot}/.devenv-global-inputs.yaml";
   sourcePath =
     if lib.hasPrefix "/" cfg.sourcePath
     then cfg.sourcePath
@@ -58,4 +59,8 @@ let
 in
 {
   inherit repoNames repoSources reposRoot sourcePath;
+  globalInputsText =
+    if builtins.pathExists globalInputsPath
+    then builtins.readFile globalInputsPath
+    else "";
 }

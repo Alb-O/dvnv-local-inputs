@@ -28,6 +28,8 @@ overrides for both `B` and `C`.
 - Recursive scanning reuses the same `sourcePath` inside each local repo.
 - That works best with the default `devenv.yaml`, or another repo-relative path
   shared across the repos in your polyrepo.
+- If `${reposRoot}/.devenv-global-inputs.yaml` exists, its `inputs` are treated
+  as low-precedence defaults for every generated `devenv.local.yaml`.
 - `devenv.local.yaml` must exist before `devenv` starts. `devenv` loads local
   YAML during config/bootstrap, while this module runs later during Nix module
   evaluation. So the module can keep the file in sync, but it cannot bootstrap
@@ -64,3 +66,24 @@ composer.localInputOverrides = {
   includeInputs = [ "agent-scripts" "dvnv-docs-env" ];
 };
 ```
+
+## Global Defaults
+
+Create `${reposRoot}/.devenv-global-inputs.yaml` to define local-input defaults
+once for the whole polyrepo:
+
+```yaml
+inputs:
+  agent-scripts:
+    url: github:Alb-O/agent-scripts
+    flake: false
+  dvnv-docs-env:
+    url: github:Alb-O/dvnv-docs-env
+    flake: false
+```
+
+Rules:
+
+- consumer-declared inputs in `devenv.yaml` win on name collisions
+- global defaults still participate in local-path resolution
+- transitive scanning also applies to matching global defaults

@@ -6,6 +6,8 @@ import sys
 
 import yaml
 
+GLOBAL_INPUTS_BASENAME = ".devenv-global-inputs.yaml"
+
 
 def fail(message):
     raise SystemExit(message)
@@ -34,6 +36,10 @@ def get_inputs_block(source_label, yaml_text):
         fail(f"expected `inputs` to be a mapping in {source_label}")
 
     return inputs_block
+
+
+def get_input_names(source_label, yaml_text):
+    return {str(input_name) for input_name in get_inputs_block(source_label, yaml_text)}
 
 
 def read_input_spec(input_spec):
@@ -111,6 +117,7 @@ def add_override(overrides, input_name, copied_spec, source_label):
 
 def build_overrides(
     source_yaml_text,
+    global_inputs_yaml_text,
     local_repo_names,
     repo_sources,
     include_inputs,
@@ -122,15 +129,26 @@ def build_overrides(
 
     overrides = {}
     visited_repo_names = set()
-    pending_sources = [("root source", source_yaml_text)]
+    root_input_names = get_input_names("root source", source_yaml_text)
+    pending_sources = [("root source", source_yaml_text, set())]
+    if global_inputs_yaml_text:
+        pending_sources.append(
+            (
+                f"global inputs '{GLOBAL_INPUTS_BASENAME}'",
+                global_inputs_yaml_text,
+                root_input_names,
+            )
+        )
 
     while pending_sources:
-        source_label, pending_yaml_text = pending_sources.pop(0)
+        source_label, pending_yaml_text, blocked_input_names = pending_sources.pop(0)
 
         for input_name, input_spec in get_inputs_block(
             source_label, pending_yaml_text
         ).items():
             input_name = str(input_name)
+            if input_name in blocked_input_names:
+                continue
             if include_inputs and input_name not in include_inputs:
                 continue
             if input_name in exclude_inputs:
@@ -157,7 +175,7 @@ def build_overrides(
                 continue
 
             visited_repo_names.add(repo_name)
-            pending_sources.append((f"local repo '{repo_name}'", nested_source))
+            pending_sources.append((f"local repo '{repo_name}'", nested_source, set()))
 
     return overrides
 
@@ -177,6 +195,7 @@ def run_generator_mode(
     source_yaml_path,
     local_repo_names_path,
     repo_sources_json_path,
+    global_inputs_yaml_path,
     include_inputs_json_path,
     exclude_inputs_json_path,
     repos_root,
@@ -184,6 +203,9 @@ def run_generator_mode(
 ):
     local_repo_names = read_local_repo_names(local_repo_names_path)
     repo_sources = read_repo_sources(repo_sources_json_path)
+    global_inputs_yaml_text = ""
+    with open(global_inputs_yaml_path, "r", encoding="utf-8") as handle:
+        global_inputs_yaml_text = handle.read()
     include_inputs = read_name_filter(include_inputs_json_path, "included inputs")
     exclude_inputs = read_name_filter(exclude_inputs_json_path, "excluded inputs")
     fail_on_overlap(include_inputs, exclude_inputs, "included inputs", "excluded inputs")
@@ -193,6 +215,7 @@ def run_generator_mode(
 
     overrides = build_overrides(
         source_yaml_text,
+        global_inputs_yaml_text,
         local_repo_names,
         repo_sources,
         include_inputs,
@@ -242,6 +265,11 @@ def sync_local_overrides(
 
     with open(source_yaml_path, "r", encoding="utf-8") as handle:
         source_yaml_text = handle.read()
+    global_inputs_yaml_path = os.path.join(repos_root, GLOBAL_INPUTS_BASENAME)
+    global_inputs_yaml_text = ""
+    if os.path.isfile(global_inputs_yaml_path):
+        with open(global_inputs_yaml_path, "r", encoding="utf-8") as handle:
+            global_inputs_yaml_text = handle.read()
 
     source_relative_path = maybe_relativize(source_yaml_path, repo_root)
     repo_names = {
@@ -263,6 +291,7 @@ def sync_local_overrides(
 
     overrides = build_overrides(
         source_yaml_text,
+        global_inputs_yaml_text,
         repo_names,
         repo_sources,
         include_inputs,
@@ -292,7 +321,7 @@ def sync_local_overrides(
 
 
 def parse_args(argv):
-    if len(argv) == 7:
+    if len(argv) == 8:
         return ("generate", argv)
 
     parser = argparse.ArgumentParser(
@@ -322,6 +351,7 @@ def main():
             source_yaml_path,
             local_repo_names_path,
             repo_sources_json_path,
+            global_inputs_yaml_path,
             include_inputs_json_path,
             exclude_inputs_json_path,
             repos_root,
@@ -331,6 +361,7 @@ def main():
             source_yaml_path,
             local_repo_names_path,
             repo_sources_json_path,
+            global_inputs_yaml_path,
             include_inputs_json_path,
             exclude_inputs_json_path,
             repos_root,

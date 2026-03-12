@@ -7,6 +7,7 @@ in
 (
   {
     cfg,
+    globalInputsText,
     repoNames,
     repoSources,
     reposRoot,
@@ -20,6 +21,7 @@ in
           "sourceYaml"
           "repoNamesJson"
           "repoSourcesJson"
+          "globalInputsYaml"
           "includeInputsJson"
           "excludeInputsJson"
         ];
@@ -27,6 +29,7 @@ in
         sourceYaml = builtins.readFile sourcePath;
         repoNamesJson = builtins.toJSON repoNames;
         repoSourcesJson = builtins.toJSON repoSources;
+        globalInputsYaml = globalInputsText;
         includeInputsJson = builtins.toJSON cfg.includeInputs;
         excludeInputsJson = builtins.toJSON cfg.excludeInputs;
         reposRoot = reposRoot;
@@ -36,6 +39,7 @@ in
           "$sourceYamlPath" \
           "$repoNamesJsonPath" \
           "$repoSourcesJsonPath" \
+          "$globalInputsYamlPath" \
           "$includeInputsJsonPath" \
           "$excludeInputsJsonPath" \
           "$reposRoot" \
